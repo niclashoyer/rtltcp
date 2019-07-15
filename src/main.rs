@@ -24,6 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		} else {
 			TcpListener::bind("[::]:1234")?
 		};
+		systemd::daemon::notify(false, [(systemd::daemon::STATE_READY, "1")].iter())?;
 	}
 	#[cfg(not(feature = "systemd"))]
 	{
