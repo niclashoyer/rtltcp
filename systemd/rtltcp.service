@@ -1,0 +1,9 @@
+[Unit]
+Description=RTL TCP Service
+After=network.target
+Requires=rtltcp.socket
+
+[Service]
+Type=notify
+ExecStart=/usr/local/bin/rtltcp
+TimeoutStopSec=5
