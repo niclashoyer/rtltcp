@@ -1,8 +1,10 @@
 
+use std::sync::Arc;
 use std::convert::TryInto;
 use std::io::prelude::*;
 use std::io::BufWriter;
 use std::net::TcpListener;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[cfg(feature = "systemd")]
 use listenfd::ListenFd;
@@ -10,6 +12,16 @@ use slog::{o, debug, error, info};
 use slog::Drain;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+	let running = Arc::new(AtomicBool::new(false));
+	let r = running.clone();
+	ctrlc::set_handler(move || {
+		if r.load(Ordering::SeqCst) == false {
+			// rtl tcp not running yet, just exit
+			std::process::exit(0);
+		}
+		r.store(false, Ordering::SeqCst);
+	})?;
+
 	let decorator = slog_term::TermDecorator::new().build();
 	let drain = slog_term::FullFormat::new(decorator).build().fuse();
 	let drain = slog_async::Async::new(drain).build().fuse();
@@ -32,6 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	}
 
 	for stream in listener.incoming() {
+		running.store(true, Ordering::SeqCst);
 		let stream = stream?;
 		let (mut ctl, mut reader) = rtlsdr_mt::open(0).map_err(|_| "Could not open RTL SDR device")?;
 		ctl.enable_agc().map_err(|_| "Could not enable automatic gain control")?;
@@ -93,9 +106,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		magic_packet.extend_from_slice(&[0x00, 0x00, 0x00, 0x1d]); // FIXME
 		buf_write_stream.write(&magic_packet)?;
 		reader.read_async(15, 0, |bytes| {
-			buf_write_stream.write(&bytes).unwrap_or_else(|err| {
-				error!(log, "error while writing to TCP stream: {:?}", err); // FIXME: async logger does not flush
-				std::process::exit(1);
+			if running.load(Ordering::SeqCst) == false {
+				std::process::exit(0);
+			}
+			buf_write_stream.write(&bytes).unwrap_or_else(|_err| {
+				std::process::exit(0);
 			});
 		}).unwrap();
 	}

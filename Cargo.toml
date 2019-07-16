@@ -17,3 +17,4 @@ daemon_systemd = ["listenfd", "systemd"]
 "slog-term" = "*"
 "listenfd" = { version = "*", optional = true }
 "systemd" = { version = "*", "optional" = true }
+"ctrlc" = "*"
