@@ -74,7 +74,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let port = matches.value_of("port").unwrap_or("1234");
 	let device = matches.value_of("device").unwrap_or("0").parse::<u32>()?;
 	let buffers = matches.value_of("buffers").unwrap_or("15").parse::<u32>()?;
-	let tcpbufsize = matches.value_of("tcp_buffer").unwrap_or("5288960").parse::<usize>()?;
+	let tcpbufsize = matches.value_of("tcp_buffer").unwrap_or("512000").parse::<usize>()?;
 	let ppm = matches.value_of("ppm").unwrap_or("0").parse::<i32>()?;
 	let freq = matches.value_of("frequency").unwrap_or("100000000").parse::<u32>()?;
 	let gain = matches.value_of("gain").unwrap_or("0").parse::<i32>()?;
