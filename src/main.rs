@@ -1,5 +1,5 @@
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::convert::TryInto;
 use std::io::prelude::*;
 use std::io::BufWriter;
@@ -99,59 +99,52 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	for stream in listener.incoming() {
 		running.store(true, Ordering::SeqCst);
 		let stream = stream?;
-		let (ctl, mut reader) = rtlsdr_mt::open(device).map_err(|_| "Could not open RTL SDR device")?;
-		let ctl = Arc::new(Mutex::new(ctl));
-		{
-			let ctl = ctl.clone();
-			let mut lctl = ctl.lock().unwrap();
-			lctl.set_sample_rate(sample_rate).map_err(|_| "Could not set sample rate")?;
-			if gain == 0 {
-				lctl.enable_agc().map_err(|_| "Could not enable automatic gain control")?;
-			} else {
-				lctl.set_tuner_gain(gain).map_err(|_| "Could not enable manual gain")?;
-			}
-			lctl.set_ppm(ppm).map_err(|_| "Could not set PPM")?;
-			lctl.set_center_freq(freq).map_err(|_| "Could not set center frequency")?;
+		let (mut ctl, mut reader) = rtlsdr_mt::open(device).map_err(|_| "Could not open RTL SDR device")?;
+		ctl.set_sample_rate(sample_rate).map_err(|_| "Could not set sample rate")?;
+		if gain == 0 {
+			ctl.enable_agc().map_err(|_| "Could not enable automatic gain control")?;
+		} else {
+			ctl.set_tuner_gain(gain).map_err(|_| "Could not enable manual gain")?;
 		}
+		ctl.set_ppm(ppm).map_err(|_| "Could not set PPM")?;
+		ctl.set_center_freq(freq).map_err(|_| "Could not set center frequency")?;
 
 		std::thread::spawn({
 			let log = log.clone();
 			let mut stream = stream.try_clone()?;
-			let ctl = ctl.clone();
 			move || {
 				let mut buf = [0; 5];
 				loop {
 					stream.read(&mut buf).unwrap();
-					let mut lctl = ctl.lock().unwrap();
 					match buf[0] {
 						0x01 => {
 							let freq = u32::from_be_bytes((&buf[1..5]).try_into().unwrap());
 							info!(log, "setting center freq to {}", freq);
-							lctl.set_center_freq(freq).unwrap();
+							ctl.set_center_freq(freq).unwrap();
 						},
 						0x02 => {
 							let sample_rate = u32::from_be_bytes((&buf[1..5]).try_into().unwrap());
 							info!(log, "setting sample rate to {}", sample_rate);
-							lctl.set_sample_rate(sample_rate).unwrap();
+							ctl.set_sample_rate(sample_rate).unwrap();
 						},
 						0x05 => {
 							let ppm = i32::from_be_bytes((&buf[1..5]).try_into().unwrap());
 							info!(log, "setting ppm to {}", ppm);
-							lctl.set_ppm(ppm).unwrap();
+							ctl.set_ppm(ppm).unwrap();
 						},
 						0x04 => {
 							let gain = i32::from_be_bytes((&buf[1..5]).try_into().unwrap());
 							info!(log, "setting manual gain to {}", gain);
-							lctl.set_tuner_gain(gain).unwrap();
+							ctl.set_tuner_gain(gain).unwrap();
 						},
 						0x08 => {
 							let agc = u32::from_be_bytes((&buf[1..5]).try_into().unwrap()) == 1u32;
 							if agc {
 								info!(log, "setting automatic gain control to on");
-								lctl.enable_agc().unwrap();
+								ctl.enable_agc().unwrap();
 							} else {
 								info!(log, "setting automatic gain control to off");
-								lctl.disable_agc().unwrap();
+								ctl.disable_agc().unwrap();
 							}
 						},
 						_ => {
@@ -168,12 +161,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		magic_packet.extend_from_slice(&5u32.to_be_bytes()); // FIXME
 		magic_packet.extend_from_slice(&[0x00, 0x00, 0x00, 0x1d]); // FIXME
 		buf_write_stream.write(&magic_packet)?;
-		let ctl = ctl.clone();
 		reader.read_async(buffers, 0, |bytes| {
-			let written = buf_write_stream.write(&bytes);
-			if written.is_err() || running.load(Ordering::SeqCst) == false {
-				ctl.lock().unwrap().cancel_async_read();
+			if running.load(Ordering::SeqCst) == false {
+				std::process::exit(0);
 			}
+			buf_write_stream.write(&bytes).unwrap_or_else(|_err| {
+				std::process::exit(0);
+			});
 		}).unwrap();
 	}
 
