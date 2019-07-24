@@ -67,8 +67,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	}
 
 	let (sender, receiver) = sync_channel(0);
+	let sender_ctrlc = sender.clone();
 	ctrlc::set_handler(move || {
-		match sender.try_send(()) {
+		match sender_ctrlc.try_send(()) {
 			Ok(_) => {},
 			Err(_) => {
 				// main thread not waiting, we can exit immediately
@@ -136,7 +137,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	buf_write_stream.write(&magic_packet)?;
 	reader.read_async(buffers, 0, |bytes| {
 		buf_write_stream.write(&bytes).unwrap_or_else(|_err| {
-			std::process::exit(0);
+			match sender.try_send(()) {
+				Ok(_) => 0,
+				Err(_) => {
+					// main thread not waiting, we can exit immediately
+					std::process::exit(0);
+				}
+			}
 		});
 	}).unwrap();
 
