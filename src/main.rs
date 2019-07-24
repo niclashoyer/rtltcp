@@ -4,6 +4,7 @@ use std::io::prelude::*;
 use std::io::BufWriter;
 use std::net::TcpListener;
 use std::sync::mpsc::sync_channel;
+use std::sync::{Arc, Mutex};
 
 #[cfg(feature = "systemd")]
 use listenfd::ListenFd;
@@ -77,10 +78,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	})?;
 
 	let (stream, _addr) = listener.accept()?;
-	let (mut ctl, mut reader) = rtlsdr_mt::open(device).map_err(|_| "Could not open RTL SDR device")?;
+	let (ctl, mut reader) = rtlsdr_mt::open(device).map_err(|_| "Could not open RTL SDR device")?;
+	let ctl = Arc::new(Mutex::new(ctl));
 
 	std::thread::spawn({
 		let log = log.clone();
+		let ctl = ctl.clone();
 		let mut stream = stream.try_clone()?;
 		move || {
 			let mut buf = [0; 5];
@@ -90,31 +93,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 					0x01 => {
 						let freq = u32::from_be_bytes((&buf[1..5]).try_into().unwrap());
 						info!(log, "setting center freq to {}", freq);
-						ctl.set_center_freq(freq).unwrap();
+						ctl.lock().unwrap().set_center_freq(freq).unwrap();
 					},
 					0x02 => {
 						let sample_rate = u32::from_be_bytes((&buf[1..5]).try_into().unwrap());
 						info!(log, "setting sample rate to {}", sample_rate);
-						ctl.set_sample_rate(sample_rate).unwrap();
+						ctl.lock().unwrap().set_sample_rate(sample_rate).unwrap();
 					},
 					0x05 => {
 						let ppm = i32::from_be_bytes((&buf[1..5]).try_into().unwrap());
 						info!(log, "setting ppm to {}", ppm);
-						ctl.set_ppm(ppm).unwrap();
+						ctl.lock().unwrap().set_ppm(ppm).unwrap();
 					},
 					0x04 => {
 						let gain = i32::from_be_bytes((&buf[1..5]).try_into().unwrap());
 						info!(log, "setting manual gain to {}", gain);
-						ctl.set_tuner_gain(gain).unwrap();
+						ctl.lock().unwrap().set_tuner_gain(gain).unwrap();
 					},
 					0x08 => {
 						let agc = u32::from_be_bytes((&buf[1..5]).try_into().unwrap()) == 1u32;
 						if agc {
 							info!(log, "setting automatic gain control to on");
-							ctl.enable_agc().unwrap();
+							ctl.lock().unwrap().enable_agc().unwrap();
 						} else {
 							info!(log, "setting automatic gain control to off");
-							ctl.disable_agc().unwrap();
+							ctl.lock().unwrap().disable_agc().unwrap();
 						}
 					},
 					_ => {
@@ -138,6 +141,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	}).unwrap();
 
 	receiver.recv()?;
+	ctl.lock().unwrap().cancel_async_read();
 
 	Ok(())
 
