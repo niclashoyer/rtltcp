@@ -141,6 +141,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	}).unwrap();
 
 	receiver.recv()?;
+	info!(log, "stopping read from device");
 	ctl.lock().unwrap().cancel_async_read();
 
 	Ok(())
