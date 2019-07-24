@@ -72,7 +72,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		match sender_ctrlc.try_send(()) {
 			Ok(_) => {},
 			Err(_) => {
-				// main thread not waiting, we can exit immediately
+				// cancel thread not waiting yet, we can exit immediately
 				std::process::exit(0);
 			}
 		}
@@ -129,6 +129,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		}
 	});
 
+	std::thread::spawn({
+		move || {
+			receiver.recv().unwrap();
+			info!(log, "stopping read from device");
+			ctl.lock().unwrap().cancel_async_read();
+		}
+	});
+
 	let mut buf_write_stream = BufWriter::with_capacity(tcpbufsize, stream);
 	let mut magic_packet = vec![];
 	magic_packet.extend_from_slice(b"RTL0");
@@ -137,19 +145,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	buf_write_stream.write(&magic_packet)?;
 	reader.read_async(buffers, 0, |bytes| {
 		buf_write_stream.write(&bytes).unwrap_or_else(|_err| {
-			match sender.try_send(()) {
-				Ok(_) => 0,
-				Err(_) => {
-					// main thread not waiting, we can exit immediately
-					std::process::exit(0);
-				}
-			}
+			sender.try_send(()).expect("can't exit normally");
+			0
 		});
 	}).unwrap();
-
-	receiver.recv()?;
-	info!(log, "stopping read from device");
-	ctl.lock().unwrap().cancel_async_read();
 
 	Ok(())
 
