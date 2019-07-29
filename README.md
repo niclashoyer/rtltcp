@@ -36,10 +36,10 @@ ListenStream=[::]:1234
 WantedBy=sockets.target
 ```
 
-Download the latest release of rtltcp for the Raspberry Pi and place it in `/usr/local/bin`:
+Download the [latest release](https://github.com/niclashoyer/rtltcp/releases) of rtltcp for the Raspberry Pi and place it in `/usr/local/bin`:
 
 ```bash
-wget -O /usr/local/bin/rtltcp
+wget https://github.com/niclashoyer/rtltcp/releases/download/0.1.0/rtltcp-raspbian-armv7 -O /usr/local/bin/rtltcp
 chmod +x /usr/local/bin/rtltcp
 ```
 
