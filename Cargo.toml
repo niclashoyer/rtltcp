@@ -1,8 +1,9 @@
 [package]
 name = "rtltcp"
 version = "0.1.0"
-authors = ["Niclas Hoyer <niclas@verbugt.de>"]
+authors = ["Niclas Hoyer <info@niclashoyer.de>"]
 edition = "2018"
+license = "MIT OR Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
