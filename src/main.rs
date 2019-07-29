@@ -5,6 +5,7 @@ use std::io::BufWriter;
 use std::net::TcpListener;
 use std::sync::mpsc::sync_channel;
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[cfg(feature = "systemd")]
 use listenfd::ListenFd;
@@ -68,6 +69,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	let (sender, receiver) = sync_channel(0);
 	let sender_ctrlc = sender.clone();
+    let should_exit = Arc::new(AtomicBool::new(false));
 	ctrlc::set_handler(move || {
 		match sender_ctrlc.try_send(()) {
 			Ok(_) => {},
@@ -82,14 +84,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let (ctl, mut reader) = rtlsdr_mt::open(device).map_err(|_| "Could not open RTL SDR device")?;
 	let ctl = Arc::new(Mutex::new(ctl));
 
-	std::thread::spawn({
+	let thread_ctl = std::thread::spawn({
 		let log = log.clone();
 		let ctl = ctl.clone();
+        let should_exit = should_exit.clone();
 		let mut stream = stream.try_clone()?;
 		move || {
 			let mut buf = [0; 5];
 			loop {
 				stream.read(&mut buf).unwrap();
+                if should_exit.load(Ordering::SeqCst) {
+                    break;
+                }
 				match buf[0] {
 					0x01 => {
 						let freq = u32::from_be_bytes((&buf[1..5]).try_into().unwrap());
@@ -129,11 +135,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		}
 	});
 
-	std::thread::spawn({
+	let thread_cancel = std::thread::spawn({
+        let ctl = ctl.clone();
 		move || {
 			receiver.recv().unwrap();
 			info!(log, "stopping read from device");
 			ctl.lock().unwrap().cancel_async_read();
+            should_exit.store(true, Ordering::SeqCst);
 		}
 	});
 
@@ -150,6 +158,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		});
 	}).unwrap();
 
-	Ok(())
+    thread_cancel.join().unwrap();
+    thread_ctl.join().unwrap();
 
+	Ok(())
 }
