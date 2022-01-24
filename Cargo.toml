@@ -17,6 +17,6 @@ daemon_systemd = ["listenfd", "systemd"]
 "slog-async" = "*"
 "slog-term" = "*"
 "ctrlc" = "*"
-"clap" = "*"
+"clap" = { version = "3.0", features = ["derive"] }
 "listenfd" = { version = "*", optional = true }
 "systemd" = { version = "*", "optional" = true }

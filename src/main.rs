@@ -6,11 +6,40 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::sync_channel;
 use std::sync::{Arc, Mutex};
 
-use clap::{App, Arg};
+use clap::Parser;
 #[cfg(feature = "systemd")]
 use listenfd::ListenFd;
 use slog::Drain;
 use slog::{debug, info, o};
+
+#[derive(Parser, Debug)]
+#[clap(
+    author,
+    version,
+    about = "an I/Q spectrum server for RTL2832 based DVB-T receivers",
+    long_about = None
+)]
+struct Args {
+    /// listen address
+    #[clap(short, long, default_value = "[::]")]
+    address: String,
+
+    /// listen port
+    #[clap(short, long, default_value_t = 1234)]
+    port: u16,
+
+    /// device index
+    #[clap(short, long, default_value_t = 0)]
+    device_index: u32,
+
+    /// number of decoding buffers
+    #[clap(short, long, default_value_t = 15)]
+    buffers: u32,
+
+    /// tcp sending buffer size (in bytes)
+    #[clap(short, long, default_value_t = 512000)]
+    tcp_buffers: usize,
+}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let decorator = slog_term::TermDecorator::new().build();
@@ -18,50 +47,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let drain = slog_async::Async::new(drain).build().fuse();
     let log = slog::Logger::root(drain, o!());
 
-    let matches = App::new("rtltcp")
-        .version("0.1")
-        .about("an I/Q spectrum server for RTL2832 based DVB-T receivers")
-        .author("Niclas Hoyer")
-        .arg(
-            Arg::with_name("address")
-                .short('a')
-                .value_name("ADDRESS")
-                .help("listen address (default: [::])"),
-        )
-        .arg(
-            Arg::with_name("port")
-                .short('p')
-                .value_name("PORT")
-                .help("listen port (default: 1234)"),
-        )
-        .arg(
-            Arg::with_name("device")
-                .short('d')
-                .value_name("DEVICE_INDEX")
-                .help("device index (default: 0)"),
-        )
-        .arg(
-            Arg::with_name("buffers")
-                .short('b')
-                .value_name("NUM")
-                .help("number of decoding buffers (default: 15)"),
-        )
-        .arg(
-            Arg::with_name("tcp_buffer")
-                .short('n')
-                .value_name("BYTES")
-                .help("tcp sending buffer size (default: 500 KiB)"),
-        )
-        .get_matches();
-
-    let addr = matches.value_of("address").unwrap_or("[::]");
-    let port = matches.value_of("port").unwrap_or("1234");
-    let device = matches.value_of("device").unwrap_or("0").parse::<u32>()?;
-    let buffers = matches.value_of("buffers").unwrap_or("15").parse::<u32>()?;
-    let tcpbufsize = matches
-        .value_of("tcp_buffer")
-        .unwrap_or("512000")
-        .parse::<usize>()?;
+    let args = Args::parse();
 
     let listener;
     #[cfg(feature = "systemd")]
@@ -73,13 +59,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         {
             listener
         } else {
-            TcpListener::bind(format!("{}:{}", addr, port))?
+            TcpListener::bind(format!("{}:{}", args.address, args.port))?
         };
         systemd::daemon::notify(false, [(systemd::daemon::STATE_READY, "1")].iter())?;
     }
     #[cfg(not(feature = "systemd"))]
     {
-        listener = TcpListener::bind(format!("{}:{}", addr, port))?;
+        listener = TcpListener::bind(format!("{}:{}", args, address, args.port))?;
     }
 
     let (sender, receiver) = sync_channel(0);
@@ -96,7 +82,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     })?;
 
     let (stream, _addr) = listener.accept()?;
-    let (ctl, mut reader) = rtlsdr_mt::open(device).map_err(|_| "Could not open RTL SDR device")?;
+    let (ctl, mut reader) =
+        rtlsdr_mt::open(args.device_index).map_err(|_| "Could not open RTL SDR device")?;
     let ctl = Arc::new(Mutex::new(ctl));
 
     let thread_ctl = std::thread::spawn({
@@ -107,7 +94,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         move || {
             let mut buf = [0; 5];
             loop {
-                stream.read(&mut buf).unwrap();
+                stream.read_exact(&mut buf).unwrap();
                 if should_exit.load(Ordering::SeqCst) {
                     break;
                 }
@@ -151,7 +138,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     let thread_cancel = std::thread::spawn({
-        let ctl = ctl.clone();
         move || {
             receiver.recv().unwrap();
             info!(log, "stopping read from device");
@@ -160,17 +146,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    let mut buf_write_stream = BufWriter::with_capacity(tcpbufsize, stream);
+    let mut buf_write_stream = BufWriter::with_capacity(args.tcp_buffers, stream);
     let mut magic_packet = vec![];
     magic_packet.extend_from_slice(b"RTL0");
     magic_packet.extend_from_slice(&5u32.to_be_bytes()); // FIXME
     magic_packet.extend_from_slice(&[0x00, 0x00, 0x00, 0x1d]); // FIXME
-    buf_write_stream.write(&magic_packet)?;
+    buf_write_stream.write_all(&magic_packet)?;
     reader
-        .read_async(buffers, 0, |bytes| {
-            buf_write_stream.write(&bytes).unwrap_or_else(|_err| {
+        .read_async(args.buffers, 0, |bytes| {
+            buf_write_stream.write_all(bytes).unwrap_or_else(|_err| {
                 sender.try_send(()).expect("can't exit normally");
-                0
             });
         })
         .unwrap();
