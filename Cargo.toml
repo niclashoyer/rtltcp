@@ -2,7 +2,7 @@
 name = "rtltcp"
 version = "0.1.0"
 authors = ["Niclas Hoyer <info@niclashoyer.de>"]
-edition = "2018"
+edition = "2021"
 license = "MIT OR Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -12,11 +12,11 @@ default = ["daemon_systemd"]
 daemon_systemd = ["listenfd", "systemd"]
 
 [dependencies]
-"rtlsdr_mt" = "*"
-"slog" = { version = "*", features = ["max_level_debug", "release_max_level_debug"] }
-"slog-async" = "*"
-"slog-term" = "*"
-"ctrlc" = "*"
+"rtlsdr_mt" = "2.1"
+"slog" = { version = "2.7", features = ["max_level_debug", "release_max_level_debug"] }
+"slog-async" = "2.7"
+"slog-term" = "2.8"
+"ctrlc" = "3.2"
 "clap" = { version = "3.0", features = ["derive"] }
-"listenfd" = { version = "*", optional = true }
-"systemd" = { version = "*", "optional" = true }
+"listenfd" = { version = "0.5", optional = true }
+"systemd" = { version = "0.10", "optional" = true }
