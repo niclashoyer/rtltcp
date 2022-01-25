@@ -1,0 +1,6 @@
+[advisories]
+ignore = [
+    # chrono: Potential segfault in localtime_r invocations
+    # rtltcp avoids setting any environment variables to avoid this issue
+    "RUSTSEC-2020-0159",
+]
