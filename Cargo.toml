@@ -1,5 +1,6 @@
 [package]
 name = "rtltcp"
+description = "A rust implementation of rtl-tcp with better buffering and support for systemd socket activation."
 version = "0.1.1"
 authors = ["Niclas Hoyer <info@niclashoyer.de>"]
 edition = "2021"
