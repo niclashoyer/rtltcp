@@ -20,6 +20,11 @@ jobs:
           toolchain: stable
           profile: minimal
           override: true
+      - name: install dependencies
+        shell: bash
+        run: |
+          sudo apt update
+          sudo apt-get install -y librtlsdr-dev libsystemd-dev
       - uses: Swatinem/rust-cache@v1
       - uses: actions-rs/cargo@v1
         with:
@@ -104,6 +109,11 @@ jobs:
           toolchain: stable
           profile: minimal
           override: true
+      - name: install dependencies
+        shell: bash
+        run: |
+          sudo apt update
+          sudo apt-get install -y librtlsdr-dev libsystemd-dev
       - uses: Swatinem/rust-cache@v1
       - uses: actions-rs/cargo@v1
         with:
@@ -122,6 +132,11 @@ jobs:
           toolchain: stable
           profile: minimal
           override: true
+      - name: install dependencies
+        shell: bash
+        run: |
+          sudo apt update
+          sudo apt-get install -y librtlsdr-dev libsystemd-dev
       - uses: Swatinem/rust-cache@v1
       - name: Run cargo-tarpaulin
         uses: actions-rs/tarpaulin@v0.1
