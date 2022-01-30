@@ -2,7 +2,6 @@
 
 [![Rust GitHub Template](https://img.shields.io/badge/Rust%20GitHub-Template-blue)](https://rust-github.github.io/)
 [![Crates.io](https://img.shields.io/crates/v/rtltcp.svg)](https://crates.io/crates/rtltcp)
-[![Docs.rs](https://docs.rs/rtltcp/badge.svg)](https://docs.rs/rtltcp)
 [![CI](https://github.com/niclashoyer/rtltcp/workflows/CI/badge.svg)](https://github.com/niclashoyer/rtltcp/actions)
 [![Coverage Status](https://coveralls.io/repos/github/niclashoyer/rtltcp/badge.svg?branch=main)](https://coveralls.io/github/niclashoyer/rtltcp?branch=main)
 
