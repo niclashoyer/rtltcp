@@ -16,7 +16,7 @@ daemon_systemd = ["listenfd", "systemd"]
 [dependencies]
 "rtlsdr_mt" = "2.1"
 "tracing" = "0.1"
-"tracing-subscriber" = "0.2"
+"tracing-subscriber" = "0.3"
 "ctrlc" = "3.2"
 "clap" = { version = "3.0", features = ["derive"] }
 "listenfd" = { version = "0.5", optional = true }
