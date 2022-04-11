@@ -302,9 +302,9 @@ dependencies = [
 
 [[package]]
 name = "rtlsdr_mt"
-version = "2.1.0"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62eb4b4b0366801a8d5c3ac62d8af539b8033c7dfa8d72384fe5afa9285e0034"
+checksum = "7ead428bf7bc845190da3cbb5db2d54465b53e9ac4fc4ddf1d84269c11415e5a"
 dependencies = [
  "libc",
  "rtlsdr_sys",
