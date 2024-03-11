@@ -90,7 +90,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         move || {
             let mut buf = [0; 5];
             loop {
-                stream.read_exact(&mut buf).unwrap();
+                let _ = stream.read_exact(&mut buf);
                 if should_exit.load(Ordering::SeqCst) {
                     break;
                 }
@@ -151,7 +151,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     reader
         .read_async(args.buffers, 0, |bytes| {
             buf_write_stream.write_all(bytes).unwrap_or_else(|_err| {
-                sender.try_send(()).expect("can't exit normally");
+                let _ = sender.try_send(());
             });
         })
         .unwrap();
