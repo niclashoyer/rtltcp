@@ -41,28 +41,23 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ matrix.rust }}
-          profile: minimal
-          override: true
+          targets: ${{ matrix.job.target }}
       - name: install dependencies
+        if: ${{ !matrix.job.use-cross }}
         shell: bash
         run: |
           sudo apt update
           sudo apt-get install -y librtlsdr-dev libsystemd-dev
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
       - name: Cargo build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          use-cross: ${{ matrix.job.use-cross }}
-          toolchain: ${{ matrix.rust }}
-          args: --release --target ${{ matrix.job.target }}
+        if: ${{ !matrix.job.use-cross }}
+        run: cargo build --release --target ${{ matrix.job.target }}
 
-      - name: install strip command
+      - name: Install strip command
         shell: bash
         run: |
           if [[ ${{ matrix.job.target }} == aarch64-unknown-linux-gnu ]]; then
@@ -93,13 +88,9 @@ jobs:
           tar czvf $RELEASE_NAME.tar.gz $BINARY_NAME
 
           ########## create sha256 ##########
-          if [[ ${{ runner.os }} == 'Windows' ]]; then
-            certutil -hashfile $RELEASE_NAME.tar.gz sha256 | grep -E [A-Fa-f0-9]{64} > $RELEASE_NAME.sha256
-          else
-            shasum -a 256 $RELEASE_NAME.tar.gz > $RELEASE_NAME.sha256
-          fi
+          sha256sum $RELEASE_NAME.tar.gz > $RELEASE_NAME.sha256
       - name: Releasing assets
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             target/${{ matrix.job.target }}/release/rtltcp-*.tar.gz
@@ -112,19 +103,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
+        uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - name: install dependencies
         shell: bash
         run: |
           sudo apt update
           sudo apt-get install -y librtlsdr-dev libsystemd-dev
-      - uses: Swatinem/rust-cache@v1
-      - uses: actions-rs/cargo@v1
-        with:
-          command: publish
-          args: --token ${{ secrets.CARGO_API_KEY }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Publish to crates.io
+        run: cargo publish --token ${{ secrets.CARGO_API_KEY }}

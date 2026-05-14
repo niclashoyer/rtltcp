@@ -1,6 +1,6 @@
-use std::convert::TryInto;
 use std::io::prelude::*;
 use std::io::BufWriter;
+use std::io::ErrorKind;
 use std::net::TcpListener;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::sync_channel;
@@ -9,7 +9,20 @@ use std::sync::{Arc, Mutex};
 use clap::Parser;
 #[cfg(feature = "systemd")]
 use listenfd::ListenFd;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
+
+/// RTL-TCP protocol command codes
+const COMMAND_HEADER_SIZE: usize = 5;
+const CMD_SET_FREQUENCY: u8 = 0x01;
+const CMD_SET_SAMPLE_RATE: u8 = 0x02;
+const CMD_SET_GAIN_MODE: u8 = 0x03;
+const CMD_SET_TUNER_GAIN: u8 = 0x04;
+const CMD_SET_PPM: u8 = 0x05;
+const CMD_SET_AGC: u8 = 0x08;
+
+/// Magic packet sent to client on connect:
+/// "RTL0" (4 bytes) + tuner type 5 (4 bytes BE) + max gain value 0x1d (4 bytes BE)
+const MAGIC_PACKET: &[u8] = b"RTL0\x00\x00\x00\x05\x00\x00\x00\x1d";
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -61,18 +74,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     #[cfg(not(feature = "systemd"))]
     {
-        listener = TcpListener::bind(format!("{}:{}", args, address, args.port))?;
+        listener = TcpListener::bind(format!("{}:{}", args.address, args.port))?;
     }
 
-    let (sender, receiver) = sync_channel(0);
+    let (sender, receiver) = sync_channel(1);
     let sender_ctrlc = sender.clone();
     let should_exit = Arc::new(AtomicBool::new(false));
+    let should_exit_ctrlc = should_exit.clone();
     ctrlc::set_handler(move || {
+        info!("received signal, shutting down");
         match sender_ctrlc.try_send(()) {
             Ok(_) => {}
             Err(_) => {
-                // cancel thread not waiting yet, we can exit immediately
-                std::process::exit(0);
+                warn!("could not send exit signal, exiting immediately");
+                should_exit_ctrlc.store(true, Ordering::SeqCst);
             }
         }
     })?;
@@ -88,53 +103,151 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let should_exit = should_exit.clone();
         let mut stream = stream.try_clone()?;
         move || {
-            let mut buf = [0; 5];
+            let mut buf = [0u8; COMMAND_HEADER_SIZE];
             loop {
-                stream.read_exact(&mut buf).unwrap();
+                match stream.read_exact(&mut buf) {
+                    Ok(()) => {}
+                    Err(e) if e.kind() == ErrorKind::UnexpectedEof
+                        || e.kind() == ErrorKind::ConnectionReset
+                        || e.kind() == ErrorKind::BrokenPipe
+                        || e.kind() == ErrorKind::TimedOut =>
+                    {
+                        info!("client disconnected: {}", e);
+                        break;
+                    }
+                    Err(e) => {
+                        warn!("read error from client: {}", e);
+                        break;
+                    }
+                }
+
                 if should_exit.load(Ordering::SeqCst) {
+                    info!("exit flag set, stopping control thread");
                     break;
                 }
-                match buf[0] {
-                    0x01 => {
-                        let freq = u32::from_be_bytes((&buf[1..5]).try_into().unwrap());
+
+                let cmd = buf[0];
+                let payload: [u8; 4] = [buf[1], buf[2], buf[3], buf[4]];
+
+                match cmd {
+                    CMD_SET_FREQUENCY => {
+                        let freq = u32::from_be_bytes(payload);
                         info!("setting center freq to {}", freq);
-                        ctl.lock().unwrap().set_center_freq(freq).unwrap();
-                    }
-                    0x02 => {
-                        let sample_rate = u32::from_be_bytes((&buf[1..5]).try_into().unwrap());
-                        info!("setting sample rate to {}", sample_rate);
-                        ctl.lock().unwrap().set_sample_rate(sample_rate).unwrap();
-                    }
-                    0x03 => {
-                        let gain_mode = i32::from_be_bytes((&buf[1..5]).try_into().unwrap());
-                        if gain_mode > 0 {
-                            info!("manual tuner gain requested");
-                            info!("setting automatic gain control to on");
-                            ctl.lock().unwrap().enable_agc().unwrap();
-                        } else {
-                            info!("manual tuner gain requested, disabling agc");
-                            info!("setting automatic gain control to off");
-                            ctl.lock().unwrap().disable_agc().unwrap();
+                        match ctl.lock() {
+                            Ok(mut guard) => {
+                                if let Err(_) = guard.set_center_freq(freq) {
+                                    warn!("failed to set center freq");
+                                }
+                            }
+                            Err(_) => {
+                                warn!("mutex poisoned in control thread");
+                                break;
+                            }
                         }
                     }
-                    0x04 => {
-                        let gain = i32::from_be_bytes((&buf[1..5]).try_into().unwrap());
+                    CMD_SET_SAMPLE_RATE => {
+                        let sample_rate = u32::from_be_bytes(payload);
+                        info!("setting sample rate to {}", sample_rate);
+                        match ctl.lock() {
+                            Ok(mut guard) => {
+                                if let Err(_) = guard.set_sample_rate(sample_rate) {
+                                    warn!("failed to set sample rate");
+                                }
+                            }
+                            Err(_) => {
+                                warn!("mutex poisoned in control thread");
+                                break;
+                            }
+                        }
+                    }
+                    CMD_SET_GAIN_MODE => {
+                        let gain_mode = i32::from_be_bytes(payload);
+                        if gain_mode > 0 {
+                            info!("gain mode set to manual (AGC off)");
+                            match ctl.lock() {
+                                Ok(mut guard) => {
+                                    if let Err(_) = guard.disable_agc() {
+                                        warn!("failed to disable AGC");
+                                    }
+                                }
+                                Err(_) => {
+                                    warn!("mutex poisoned in control thread");
+                                    break;
+                                }
+                            }
+                        } else {
+                            info!("gain mode set to automatic (AGC on)");
+                            match ctl.lock() {
+                                Ok(mut guard) => {
+                                    if let Err(_) = guard.enable_agc() {
+                                        warn!("failed to enable AGC");
+                                    }
+                                }
+                                Err(_) => {
+                                    warn!("mutex poisoned in control thread");
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    CMD_SET_TUNER_GAIN => {
+                        let gain = i32::from_be_bytes(payload);
                         info!("setting manual gain to {}", gain);
-                        ctl.lock().unwrap().set_tuner_gain(gain).unwrap();
+                        match ctl.lock() {
+                            Ok(mut guard) => {
+                                if let Err(_) = guard.set_tuner_gain(gain) {
+                                    warn!("failed to set tuner gain");
+                                }
+                            }
+                            Err(_) => {
+                                warn!("mutex poisoned in control thread");
+                                break;
+                            }
+                        }
                     }
-                    0x05 => {
-                        let ppm = i32::from_be_bytes((&buf[1..5]).try_into().unwrap());
+                    CMD_SET_PPM => {
+                        let ppm = i32::from_be_bytes(payload);
                         info!("setting ppm to {}", ppm);
-                        ctl.lock().unwrap().set_ppm(ppm).unwrap();
+                        match ctl.lock() {
+                            Ok(mut guard) => {
+                                if let Err(_) = guard.set_ppm(ppm) {
+                                    warn!("failed to set ppm");
+                                }
+                            }
+                            Err(_) => {
+                                warn!("mutex poisoned in control thread");
+                                break;
+                            }
+                        }
                     }
-                    0x08 => {
-                        let agc = u32::from_be_bytes((&buf[1..5]).try_into().unwrap()) == 1u32;
+                    CMD_SET_AGC => {
+                        let agc = u32::from_be_bytes(payload) == 1u32;
                         if agc {
                             info!("setting automatic gain control to on");
-                            ctl.lock().unwrap().enable_agc().unwrap();
+                            match ctl.lock() {
+                                Ok(mut guard) => {
+                                    if let Err(_) = guard.enable_agc() {
+                                        warn!("failed to enable AGC");
+                                    }
+                                }
+                                Err(_) => {
+                                    warn!("mutex poisoned in control thread");
+                                    break;
+                                }
+                            }
                         } else {
                             info!("setting automatic gain control to off");
-                            ctl.lock().unwrap().disable_agc().unwrap();
+                            match ctl.lock() {
+                                Ok(mut guard) => {
+                                    if let Err(_) = guard.disable_agc() {
+                                        warn!("failed to disable AGC");
+                                    }
+                                }
+                                Err(_) => {
+                                    warn!("mutex poisoned in control thread");
+                                    break;
+                                }
+                            }
                         }
                     }
                     _ => {
@@ -142,34 +255,84 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
             }
+            info!("control thread exiting");
         }
     });
 
     let thread_cancel = std::thread::spawn({
+        let ctl = ctl.clone();
+        let should_exit = should_exit.clone();
         move || {
-            receiver.recv().unwrap();
+            let _ = receiver.recv();
             info!("stopping read from device");
-            ctl.lock().unwrap().cancel_async_read();
+            if let Ok(mut guard) = ctl.lock() {
+                guard.cancel_async_read();
+            }
             should_exit.store(true, Ordering::SeqCst);
         }
     });
 
     let mut buf_write_stream = BufWriter::with_capacity(args.tcp_buffers, stream);
-    let mut magic_packet = vec![];
-    magic_packet.extend_from_slice(b"RTL0");
-    magic_packet.extend_from_slice(&5u32.to_be_bytes()); // FIXME
-    magic_packet.extend_from_slice(&[0x00, 0x00, 0x00, 0x1d]); // FIXME
-    buf_write_stream.write_all(&magic_packet)?;
-    reader
-        .read_async(args.buffers, 0, |bytes| {
-            buf_write_stream.write_all(bytes).unwrap_or_else(|_err| {
-                sender.try_send(()).expect("can't exit normally");
-            });
-        })
-        .unwrap();
+    buf_write_stream.write_all(MAGIC_PACKET)?;
 
-    thread_cancel.join().unwrap();
-    thread_ctl.join().unwrap();
+    let read_result = reader.read_async(args.buffers, 0, |bytes| {
+        if let Err(_err) = buf_write_stream.write_all(bytes) {
+            let _ = sender.try_send(());
+        }
+    });
 
+    // Signal cancel thread so it doesn't hang on recv() if read_async completes normally
+    let _ = sender.try_send(());
+
+    if let Err(_) = read_result {
+        warn!("read_async error");
+    }
+
+    // Flush buffer before shutting down
+    if let Err(e) = buf_write_stream.flush() {
+        warn!("failed to flush write buffer: {}", e);
+    }
+
+    if let Err(e) = thread_cancel.join() {
+        warn!("cancel thread panicked: {:?}", e);
+    }
+    if let Err(e) = thread_ctl.join() {
+        warn!("control thread panicked: {:?}", e);
+    }
+
+    info!("rtltcp shut down successfully");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_magic_packet_length() {
+        assert_eq!(MAGIC_PACKET.len(), 12);
+    }
+
+    #[test]
+    fn test_command_constants() {
+        assert_eq!(CMD_SET_FREQUENCY, 0x01);
+        assert_eq!(CMD_SET_SAMPLE_RATE, 0x02);
+        assert_eq!(CMD_SET_GAIN_MODE, 0x03);
+        assert_eq!(CMD_SET_TUNER_GAIN, 0x04);
+        assert_eq!(CMD_SET_PPM, 0x05);
+        assert_eq!(CMD_SET_AGC, 0x08);
+    }
+
+    #[test]
+    fn test_command_header_size() {
+        assert_eq!(COMMAND_HEADER_SIZE, 5);
+    }
+
+    #[test]
+    fn test_magic_packet_content() {
+        // "RTL0" + 5 (tuner type) + 0x1d (max gain)
+        assert_eq!(&MAGIC_PACKET[0..4], b"RTL0");
+        assert_eq!(&MAGIC_PACKET[4..8], &5u32.to_be_bytes());
+        assert_eq!(&MAGIC_PACKET[8..12], &0x1du32.to_be_bytes());
+    }
 }

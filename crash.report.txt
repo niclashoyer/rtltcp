@@ -1,0 +1,101 @@
+Linux odroid-4g-3 6.6.121-147 #1 SMP PREEMPT Mon Jan 26 15:01:31 UTC 2026 aarch64 aarch64 aarch64 GNU/Linux
+
+
+### SNIPS FROM CRASHES ###
+May 10 01:29:22 odroid-4g-3 systemd[1]: Started rtltcp1234.service - RTL TCP Service 1234.
+May 10 01:29:47 odroid-4g-3 rtltcp11[1198808]: Found Rafael Micro R820T tuner
+May 10 01:29:47 odroid-4g-3 rtltcp11[1198808]: Allocating 15 zero-copy buffers
+May 10 01:29:47 odroid-4g-3 rtltcp11[1198808]: thread '<unnamed>' panicked at /root/.cargo/registry/src/index.crates.io-6f17d22bba15001f/rtltcp-0.1.1/src/main.rs:93:45:
+May 10 01:29:47 odroid-4g-3 rtltcp11[1198808]: called `Result::unwrap()` on an `Err` value: Error { kind: UnexpectedEof, message: "failed to fill whole buffer" }
+May 10 01:29:47 odroid-4g-3 rtltcp11[1198808]: stack backtrace:
+May 10 01:29:47 odroid-4g-3 rtltcp11[1198808]:    0: rust_begin_unwind
+May 10 01:29:47 odroid-4g-3 rtltcp11[1198808]:              at ./build/rustc-xMWXN8/rustc-1.75.0+dfsg0ubuntu1/library/std/src/panicking.rs:645:5
+May 10 01:29:47 odroid-4g-3 rtltcp11[1198808]:    1: core::panicking::panic_fmt
+May 10 01:29:47 odroid-4g-3 rtltcp11[1198808]:              at ./build/rustc-xMWXN8/rustc-1.75.0+dfsg0ubuntu1/library/core/src/panicking.rs:72:14
+May 10 01:29:47 odroid-4g-3 rtltcp11[1198808]:    2: core::result::unwrap_failed
+May 10 01:29:47 odroid-4g-3 rtltcp11[1198808]:              at ./build/rustc-xMWXN8/rustc-1.75.0+dfsg0ubuntu1/library/core/src/result.rs:1653:5
+May 10 01:29:47 odroid-4g-3 rtltcp11[1198808]: note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+May 10 01:29:47 odroid-4g-3 rtltcp11[1198808]: thread 'main' panicked at /root/.cargo/registry/src/index.crates.io-6f17d22bba15001f/rtltcp-0.1.1/src/main.rs:160:23:
+May 10 01:29:47 odroid-4g-3 rtltcp11[1198808]: called `Result::unwrap()` on an `Err` value: Any { .. }
+May 10 01:29:47 odroid-4g-3 rtltcp11[1198808]: stack backtrace:
+May 10 01:29:47 odroid-4g-3 rtltcp11[1198808]:    0: rust_begin_unwind
+May 10 01:29:47 odroid-4g-3 rtltcp11[1198808]:              at ./build/rustc-xMWXN8/rustc-1.75.0+dfsg0ubuntu1/library/std/src/panicking.rs:645:5
+May 10 01:29:47 odroid-4g-3 rtltcp11[1198808]:    1: core::panicking::panic_fmt
+May 10 01:29:47 odroid-4g-3 rtltcp11[1198808]:              at ./build/rustc-xMWXN8/rustc-1.75.0+dfsg0ubuntu1/library/core/src/panicking.rs:72:14
+May 10 01:29:47 odroid-4g-3 rtltcp11[1198808]:    2: core::result::unwrap_failed
+May 10 01:29:47 odroid-4g-3 rtltcp11[1198808]:              at ./build/rustc-xMWXN8/rustc-1.75.0+dfsg0ubuntu1/library/core/src/result.rs:1653:5
+May 10 01:29:47 odroid-4g-3 rtltcp11[1198808]:    3: rtltcp::main
+May 10 01:29:47 odroid-4g-3 rtltcp11[1198808]: note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+May 10 01:29:48 odroid-4g-3 systemd[1]: rtltcp1234.service: Main process exited, code=exited, status=101/n/a
+May 10 01:29:48 odroid-4g-3 systemd[1]: rtltcp1234.service: Failed with result 'exit-code'.
+May 10 01:29:53 odroid-4g-3 systemd[1]: rtltcp1234.service: Scheduled restart job, restart counter is at 2.
+May 10 01:29:53 odroid-4g-3 systemd[1]: Stopped rtltcp1234.service - RTL TCP Service 1234.
+May 10 01:29:53 odroid-4g-3 systemd[1]: Started rtltcp1234.service - RTL TCP Service 1234.
+May 10 01:29:55 odroid-4g-3 rtltcp11[1198932]: Found Rafael Micro R820T tuner
+May 10 01:29:55 odroid-4g-3 rtltcp11[1198932]: Allocating 15 zero-copy buffers
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]: thread '<unnamed>' panicked at /root/.cargo/registry/src/index.crates.io-6f17d22bba15001f/rtltcp-0.1.1/src/main.rs:93:45:
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]: called `Result::unwrap()` on an `Err` value: Os { code: 104, kind: ConnectionReset, message: "Connection reset by peer" }
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]: stack backtrace:
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]:    0: rust_begin_unwind
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]:              at ./build/rustc-xMWXN8/rustc-1.75.0+dfsg0ubuntu1/library/std/src/panicking.rs:645:5
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]:    1: core::panicking::panic_fmt
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]:              at ./build/rustc-xMWXN8/rustc-1.75.0+dfsg0ubuntu1/library/core/src/panicking.rs:72:14
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]:    2: core::result::unwrap_failed
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]:              at ./build/rustc-xMWXN8/rustc-1.75.0+dfsg0ubuntu1/library/core/src/result.rs:1653:5
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]: note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]: thread 'main' panicked at /root/.cargo/registry/src/index.crates.io-6f17d22bba15001f/rtltcp-0.1.1/src/main.rs:154:37:
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]: can't exit normally: "Disconnected(..)"
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]: stack backtrace:
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]:    0: rust_begin_unwind
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]:              at ./build/rustc-xMWXN8/rustc-1.75.0+dfsg0ubuntu1/library/std/src/panicking.rs:645:5
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]:    1: core::panicking::panic_fmt
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]:              at ./build/rustc-xMWXN8/rustc-1.75.0+dfsg0ubuntu1/library/core/src/panicking.rs:72:14
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]:    2: core::result::unwrap_failed
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]:              at ./build/rustc-xMWXN8/rustc-1.75.0+dfsg0ubuntu1/library/core/src/result.rs:1653:5
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]:    3: rtlsdr_mt::async_wrapper
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]:    4: <unknown>
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]:    5: <unknown>
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]:    6: <unknown>
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]:    7: <unknown>
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]:    8: <unknown>
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]:    9: libusb_handle_events_timeout_completed
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]:   10: rtlsdr_read_async
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]:   11: rtltcp::main
+May 10 01:35:17 odroid-4g-3 rtltcp11[1198932]: note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+May 10 01:48:37 odroid-4g-3 systemd[1]: Stopping rtltcp1234.service - RTL TCP Service 1234...
+May 10 01:48:37 odroid-4g-3 systemd[1]: rtltcp1234.service: Deactivated successfully.
+May 10 01:48:37 odroid-4g-3 systemd[1]: Stopped rtltcp1234.service - RTL TCP Service 1234.
+May 10 01:48:37 odroid-4g-3 systemd[1]: rtltcp1234.service: Consumed 6.721s CPU time, 14.9M memory peak, 0B memory swap peak.
+May 10 01:48:37 odroid-4g-3 systemd[1]: Started rtltcp1234.service - RTL TCP Service 1234.
+May 10 01:48:39 odroid-4g-3 rtltcp11[1203651]: Found Rafael Micro R820T tuner
+May 10 01:48:39 odroid-4g-3 rtltcp11[1203651]: Allocating 15 zero-copy buffers
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]: thread '<unnamed>' panicked at /root/.cargo/registry/src/index.crates.io-6f17d22bba15001f/rtltcp-0.1.1/src/main.rs:93:45:
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]: called `Result::unwrap()` on an `Err` value: Os { code: 104, kind: ConnectionReset, message: "Connection reset by peer" }
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]: stack backtrace:
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]:    0: rust_begin_unwind
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]:              at ./build/rustc-xMWXN8/rustc-1.75.0+dfsg0ubuntu1/library/std/src/panicking.rs:645:5
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]:    1: core::panicking::panic_fmt
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]:              at ./build/rustc-xMWXN8/rustc-1.75.0+dfsg0ubuntu1/library/core/src/panicking.rs:72:14
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]:    2: core::result::unwrap_failed
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]:              at ./build/rustc-xMWXN8/rustc-1.75.0+dfsg0ubuntu1/library/core/src/result.rs:1653:5
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]: note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]: thread 'main' panicked at /root/.cargo/registry/src/index.crates.io-6f17d22bba15001f/rtltcp-0.1.1/src/main.rs:154:37:
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]: can't exit normally: "Disconnected(..)"
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]: stack backtrace:
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]:    0: rust_begin_unwind
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]:              at ./build/rustc-xMWXN8/rustc-1.75.0+dfsg0ubuntu1/library/std/src/panicking.rs:645:5
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]:    1: core::panicking::panic_fmt
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]:              at ./build/rustc-xMWXN8/rustc-1.75.0+dfsg0ubuntu1/library/core/src/panicking.rs:72:14
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]:    2: core::result::unwrap_failed
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]:              at ./build/rustc-xMWXN8/rustc-1.75.0+dfsg0ubuntu1/library/core/src/result.rs:1653:5
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]:    3: rtlsdr_mt::async_wrapper
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]:    4: <unknown>
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]:    5: <unknown>
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]:    6: <unknown>
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]:    7: <unknown>
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]:    8: <unknown>
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]:    9: libusb_handle_events_timeout_completed
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]:   10: rtlsdr_read_async
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]:   11: rtltcp::main
+May 10 01:52:17 odroid-4g-3 rtltcp11[1203651]: note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
